@@ -1,15 +1,30 @@
 pipeline {
-  agent any
-  options {
-    buildDiscarder(logRotator(numToKeepStr: '5'))
-  }
-  stages {
-    stage('Scan') {
-      steps {
-        withSonarQubeEnv(installationName: 'sq1') { 
-          sh './mvnw clean org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
+    agent {
+        docker {
+            image 'maven:3.9.9-eclipse-temurin-17'   // Latest Maven + JDK 17
+            args '-v $HOME/.m2:/root/.m2'           // Cache Maven dependencies
         }
-      }
     }
-  }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+        timeout(time: 30, unit: 'MINUTES')          // Prevent stuck builds
+    }
+
+    stages {
+        stage('Scan with SonarQube') {
+            steps {
+                withSonarQubeEnv('sq1') { 
+                    sh './mvnw clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:3.9.0.2155:sonar'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning workspace..."
+            cleanWs()
+        }
+    }
 }
